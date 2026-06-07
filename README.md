@@ -2,8 +2,6 @@
 
 ---
 
-# English Version
-
 ## Project Overview
 This project presents an academic, university-grade machine learning system designed to detect **Phishing URLs** by analyzing their lexical, structural, and behavioral features. 
 
