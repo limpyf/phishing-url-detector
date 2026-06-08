@@ -7,8 +7,8 @@ This project presents an academic, university-grade machine learning system desi
 
 
 ### Team Members
-* **Maksim Koval**
-* **Denys Burka**
+* **Maksim Koval** mkoval@edu.cdv.pl
+* **Denys Burka** dburka@edu.cdv.pl
 
 ---
 
