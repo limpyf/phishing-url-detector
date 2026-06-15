@@ -6,7 +6,8 @@ venv/
 env/
 ENV/
 
-data/
+data/**/*.csv
+data/**/*.parquet
 models/*.joblib
 models/*.pkl
 

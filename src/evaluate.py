@@ -9,8 +9,10 @@ import seaborn as sns
 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, roc_curve, confusion_matrix
+    roc_auc_score, roc_curve, confusion_matrix,
+    precision_recall_curve, average_precision_score
 )
+from sklearn.inspection import permutation_importance
 
 from utils import PROCESSED_DATA_DIR, MODELS_DIR, PLOTS_DIR
 
@@ -61,6 +63,7 @@ def evaluate_models():
     
     results = []
     roc_curves_data = {}
+    pr_curves_data = {}
     feature_importances = {}
     
     best_name = None
@@ -109,6 +112,13 @@ def evaluate_models():
         except Exception:
             roc_curves_data[name] = (np.array([0, 1]), np.array([0, 1]), 0.5)
 
+        try:
+            precision, recall, _ = precision_recall_curve(y_test, y_prob)
+            ap = average_precision_score(y_test, y_prob)
+            pr_curves_data[name] = (precision, recall, ap)
+        except Exception:
+            pr_curves_data[name] = (np.array([1, 0]), np.array([0, 1]), 0.0)
+
         plot_confusion_matrix(y_test, y_pred, name)
 
         if name == "random_forest":
@@ -134,9 +144,14 @@ def evaluate_models():
         print(f"Saved best model to {best_model_path}")
 
     plot_roc_curves(roc_curves_data)
+    plot_pr_curves(pr_curves_data)
+    plot_model_comparison(results_df)
 
     if feature_importances:
         plot_feature_importances(feature_importances, list(X_test.columns))
+
+    print("\nCalculating Permutation Importance (on representative subset for speed)...")
+    calculate_and_plot_permutation_importance(models, X_test, y_test)
 
 def plot_class_distribution(y_test):
     plt.figure(figsize=(7, 5))
@@ -255,6 +270,103 @@ def plot_feature_importances(importances_dict, feature_names):
     plt.savefig(plot_path, dpi=300)
     plt.close()
     print(f"Saved feature importance comparison plot to {plot_path}")
+
+def plot_pr_curves(pr_curves_data):
+    plt.figure(figsize=(8, 6))
+    for name, (precision, recall, ap) in pr_curves_data.items():
+        label_name = name.upper().replace('_', ' ')
+        plt.plot(recall, precision, label=f"{label_name} (AP = {ap:.4f})", 
+                 color=COLORS[name], linewidth=2.5 if name != "baseline" else 1.5,
+                 linestyle="--" if name == "baseline" else "-")
+                 
+    plt.xlabel("Recall (Sensitivity)")
+    plt.ylabel("Precision (Positive Predictive Value)")
+    plt.title("Precision-Recall Curves Comparison", pad=15)
+    plt.legend(loc="lower left", frameon=True, facecolor="white", edgecolor="none")
+    plt.xlim([-0.01, 1.01])
+    plt.ylim([-0.01, 1.01])
+    plt.tight_layout()
+    
+    plot_path = os.path.join(PLOTS_DIR, "precision_recall_curve.png")
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+    print(f"Saved Precision-Recall comparison plot to {plot_path}")
+
+def plot_model_comparison(results_df):
+    df_plot = results_df.copy()
+    metrics = ["Accuracy", "Precision", "Recall", "F1 Score", "ROC-AUC"]
+    for col in metrics:
+        df_plot[col] = df_plot[col].astype(float)
+        
+    df_melted = df_plot.melt(id_vars="Model", value_vars=metrics, var_name="Metric", value_name="Score")
+    
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(x="Metric", y="Score", hue="Model", data=df_melted, palette=list(COLORS.values()))
+    
+    plt.ylim(0, 1.15)
+    plt.ylabel("Score")
+    plt.xlabel("")
+    plt.title("Model Metrics Comparison Summary", pad=15)
+    plt.legend(loc="upper right", frameon=True, facecolor="white")
+    
+    for p in ax.patches:
+        height = p.get_height()
+        if height > 0.0:
+            ax.text(p.get_x() + p.get_width()/2., height + 0.01, f"{height:.2f}",
+                    ha="center", va="bottom", fontsize=8, fontweight="bold")
+                    
+    plt.tight_layout()
+    plot_path = os.path.join(PLOTS_DIR, "model_comparison.png")
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+    print(f"Saved model comparison plot to {plot_path}")
+
+def calculate_and_plot_permutation_importance(models, X_test, y_test):
+    np.random.seed(42)
+    # Filter test dataset index to draw sample safely
+    subsample_idx = np.random.choice(X_test.index, size=min(3000, len(X_test)), replace=False)
+    X_sub = X_test.loc[subsample_idx]
+    y_sub = y_test.loc[subsample_idx]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    models_to_eval = ["random_forest", "xgboost"]
+    
+    for i, name in enumerate(models_to_eval):
+        if name not in models:
+            continue
+        model = models[name]
+        
+        perm_importance = permutation_importance(
+            model, X_sub, y_sub, n_repeats=5, random_state=42, n_jobs=-1, scoring="f1"
+        )
+        
+        importances_mean = perm_importance.importances_mean
+        indices = np.argsort(importances_mean)[::-1]
+        
+        top_indices = indices[:15]
+        top_importances = importances_mean[top_indices]
+        top_features = [list(X_test.columns)[idx] for idx in top_indices]
+        
+        df_perm = pd.DataFrame({
+            'Feature': top_features,
+            'Importance': top_importances
+        })
+        
+        base_color = COLORS[name]
+        sns.barplot(
+            x='Importance', y='Feature', data=df_perm, 
+            ax=axes[i], color=base_color, edgecolor='grey', alpha=0.9
+        )
+        
+        axes[i].set_title(f"Permutation Importance - {name.upper().replace('_', ' ')} (Top 15)", pad=15)
+        axes[i].set_xlabel("F1 Score Drop when Shuffled")
+        axes[i].set_ylabel("")
+        
+    plt.tight_layout()
+    plot_path = os.path.join(PLOTS_DIR, "permutation_importance_comparison.png")
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+    print(f"Saved permutation importance comparison plot to {plot_path}")
 
 if __name__ == "__main__":
     evaluate_models()
