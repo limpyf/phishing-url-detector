@@ -1,24 +1,5 @@
 # 🛡️ Phishing URL Detector
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python Version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.13-blue)](REPRODUCIBILITY.md)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
-
----
-
-## 📖 Table of Contents
-1. [Business Impact & Motivation](#-business-impact--motivation)
-2. [Dataset Overview](#-dataset-overview)
-3. [Pipeline Architecture](#%EF%B8%8F-pipeline-architecture)
-4. [Handcrafted Feature Engineering](#-handcrafted-feature-engineering)
-5. [Model Training & Experiments](#-model-training--experiments)
-6. [Evaluation & Performance](#-evaluation--performance)
-7. [Explainability & Interpretability](#-explainability--interpretability)
-8. [Installation & Setup](#-installation--setup)
-9. [CLI Usage Guide](#-cli-usage-guide)
-10. [Authors](#-authors--license)
-
 ---
 
 ## 💼 Business Impact & Motivation
